@@ -1,0 +1,168 @@
+借鉴于博客//http://www.cnblogs.com/fengxuehuanlin/p/5311648.html
+一、表单上传
+<form action="upload.ashx" method="post" enctype="multipart/form-data">
+        选择文件:<input type="file" name="file1" /><br />
+        <input type="submit" value="上传" />
+ </form>
+ 上传代码封装
+<summary>
+        /// 上传图片
+        /// </summary>
+        /// <param name="file">通过form表达提交的文件</param>
+        /// <param name="virpath">文件要保存的虚拟路径</param>
+        public static void uploadImg(HttpPostedFile file,string virpath)
+        {          
+            if (file.ContentLength > 1024 * 1024 * 4)
+            {
+                throw new Exception("文件不能大于4M");
+            }
+            string imgtype = Path.GetExtension(file.FileName);
+            if(imgtype!=".jpg"&&imgtype!=".jpeg")  //图片类型进行限制
+            {
+                throw new Exception("请上传jpg或JPEG图片");
+            }
+            using (Image img = Bitmap.FromStream(file.InputStream))
+            {
+                string savepath = HttpContext.Current.Server.MapPath(virpath+file.FileName);
+                img.Save(savepath);
+            }
+        }
+    <summary>
+        /// 上传文件
+        /// </summary>
+        /// <param name="file">通过form表达提交的文件</param>
+        /// <param name="virpath">文件要保存的虚拟路径</param>
+        public static void uploadFile(HttpPostedFile file, string virpath)
+        {
+            if (file.ContentLength > 1024 * 1024 * 6)
+            {
+                throw new Exception("文件不能大于6M");
+            }
+            string imgtype = Path.GetExtension(file.FileName);
+            //imgtype对上传的文件进行限制
+            if (imgtype != ".zip" && imgtype != ".mp3")
+            {
+                throw new Exception("只允许上传zip、rar....文件");
+            }
+            string dirFullPath=  HttpContext.Current.Server.MapPath(virpath);
+            if (!Directory.Exists(dirFullPath))//如果文件夹不存在，则先创建文件夹
+            {
+                Directory.CreateDirectory(dirFullPath);
+            }
+            file.SaveAs(dirFullPath + file.FileName);
+        }
+        
+ -------------------------------------html客户端----------------------
+<head> 
+<script src="jquery-2.1.4.js"></script>
+    <script>
+        $(function () {
+            $("#upload").click(function () {
+                $("#imgWait").show();
+                var formData = new FormData();
+                formData.append("myfile", document.getElementById("file1").files[0]);   
+                $.ajax({
+                    url: "upload.ashx",
+                    type: "POST",
+                    data: formData,
+                    /**
+                    *必须false才会自动加上正确的Content-Type
+                    */
+                    contentType: false,
+                    /**
+                    * 必须false才会避开jQuery对 formdata 的默认处理
+                    * XMLHttpRequest会对 formdata 进行正确的处理
+                    */
+                    processData: false,
+                    success: function (data) {
+                        if (data.status == "true") {
+                            alert("上传成功！");
+                        }
+                        if (data.status == "error") {
+                            alert(data.msg);
+                        }
+                        $("#imgWait").hide();
+                    },
+                    error: function () {
+                        alert("上传失败！");
+                        $("#imgWait").hide();
+                    }
+                });
+            });
+        });
+    </script>
+</head>
+<body>   
+        选择文件:<input type="file" id="file1" /><br />
+        <input type="button" id="upload" value="上传" />
+        <img src="wait.gif" style="display:none" id="imgWait" />   
+</body>
+二、Ajax文件异步上传：
+<head> 
+<script src="jquery-2.1.4.js"></script>
+    <script>
+        $(function () {
+            $("#upload").click(function () {
+                $("#imgWait").show();
+                var formData = new FormData();
+                formData.append("myfile", document.getElementById("file1").files[0]);   
+                $.ajax({
+                    url: "upload.ashx",
+                    type: "POST",
+                    data: formData,
+                    /**
+                    *必须false才会自动加上正确的Content-Type
+                    */
+                    contentType: false,
+                    /**
+                    * 必须false才会避开jQuery对 formdata 的默认处理
+                    * XMLHttpRequest会对 formdata 进行正确的处理
+                    */
+                    processData: false,
+                    success: function (data) {
+                        if (data.status == "true") {
+                            alert("上传成功！");
+                        }
+                        if (data.status == "error") {
+                            alert(data.msg);
+                        }
+                        $("#imgWait").hide();
+                    },
+                    error: function () {
+                        alert("上传失败！");
+                        $("#imgWait").hide();
+                    }
+                });
+            });
+        });
+    </script>
+</head>
+<body>   
+        选择文件:<input type="file" id="file1" /><br />
+        <input type="button" id="upload" value="上传" />
+        <img src="wait.gif" style="display:none" id="imgWait" />   
+</body>
+json封装
+public static void WriteJson(HttpResponse response,
+           string status1, string msg1, object data1 = null)
+        {
+            response.ContentType = "application/json";
+            var obj = new { status = status1, msg = msg1, data = data1 };
+            string json = new JavaScriptSerializer().Serialize(obj);
+            response.Write(json);
+  }
+服务器端处理
+public void ProcessRequest(HttpContext context)
+        {
+            context.Response.ContentType = "text/html";
+            if (context.Request.Files.Count > 0)
+            {
+                HttpPostedFile file1 = context.Request.Files["myfile"];
+                helper.uploadFile(file1, "~/upload/");  //这里引用的是上面封装的方法
+                WriteJson(context.Response, "true", "");
+            }
+            else
+            {
+                WriteJson(context.Response, "error", "请选择要上传的文件");
+            }
+    }
